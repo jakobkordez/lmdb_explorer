@@ -1,0 +1,27 @@
+name: lmdb_explorer
+description: "A Flutter LMDB explorer"
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  dart_lmdb2: ^0.9.12
+  flutter_bloc: ^9.1.1
+  file_picker: ^10.3.10
+  equatable: ^2.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
