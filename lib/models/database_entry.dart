@@ -45,6 +45,16 @@ class DatabaseEntry extends Equatable {
   /// Best-effort display string for the key (UTF-8 if valid, hex otherwise).
   String get keyDisplay => keyAsUtf8 ?? keyAsHex;
 
+  /// Decodes raw key bytes to a display string without constructing a full
+  /// [DatabaseEntry]. Useful for filtering a key index in memory.
+  static String keyDisplayForBytes(Uint8List key) {
+    try {
+      return utf8.decode(key);
+    } catch (_) {
+      return _bytesToHex(key);
+    }
+  }
+
   /// Truncated preview of the value for table display.
   String get valuePreview {
     final utf8Val = valueAsUtf8;

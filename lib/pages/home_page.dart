@@ -106,7 +106,7 @@ class HomePage extends StatelessWidget {
                 ],
               ),
             ),
-            ExplorerLoaded() => _buildLoadedLayout(context, state),
+            ExplorerLoaded() => _LoadedLayout(state: state),
             ExplorerError(:final message, :final previousState) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -160,7 +160,30 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildLoadedLayout(BuildContext context, ExplorerLoaded state) {
+}
+
+class _LoadedLayout extends StatefulWidget {
+  final ExplorerLoaded state;
+
+  const _LoadedLayout({required this.state});
+
+  @override
+  State<_LoadedLayout> createState() => _LoadedLayoutState();
+}
+
+class _LoadedLayoutState extends State<_LoadedLayout> {
+  static const _minDetailWidth = 300.0;
+  static const _maxDetailWidth = 800.0;
+  static const _defaultDetailWidth = 450.0;
+
+  double _detailWidth = _defaultDetailWidth;
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final state = widget.state;
+
     return Row(
       children: [
         // Left panel: Database sidebar
@@ -175,18 +198,38 @@ class HomePage extends StatelessWidget {
         const VerticalDivider(width: 1, thickness: 1),
         // Center panel: Entry table
         Expanded(
-          flex: 3,
           child: EntryTable(
-            entries: state.entries,
-            isLoading: state.isLoadingEntries,
-            hasMore: state.hasMoreEntries,
+            keyIndex: state.keyIndex,
+            searchResults: state.searchResults,
+            selectedDatabase: state.selectedDatabase,
             searchQuery: state.searchQuery,
-            totalEntries: state.selectedDatabaseInfo?.entries,
+            isLoading: state.isLoading,
           ),
         ),
-        const VerticalDivider(width: 1, thickness: 1),
+        // Draggable resize handle
+        MouseRegion(
+          cursor: SystemMouseCursors.resizeColumn,
+          child: GestureDetector(
+            onHorizontalDragStart: (_) =>
+                setState(() => _isDragging = true),
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                _detailWidth = (_detailWidth - details.delta.dx)
+                    .clamp(_minDetailWidth, _maxDetailWidth);
+              });
+            },
+            onHorizontalDragEnd: (_) =>
+                setState(() => _isDragging = false),
+            child: Container(
+              width: 5,
+              color: _isDragging
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
         // Right panel: Entry detail
-        const SizedBox(width: 340, child: EntryDetailPanel()),
+        SizedBox(width: _detailWidth, child: const EntryDetailPanel()),
       ],
     );
   }

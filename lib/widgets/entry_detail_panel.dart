@@ -67,6 +67,31 @@ class _DetailContent extends StatelessWidget {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(width: 8),
+              // Hex width toggle
+              SizedBox(
+                height: 26,
+                child: SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(value: 8, label: Text('8')),
+                    ButtonSegment(value: 16, label: Text('16')),
+                  ],
+                  selected: {state.hexWidth},
+                  onSelectionChanged: (set) {
+                    context.read<EntryViewerCubit>().setHexWidth(set.first);
+                  },
+                  style: ButtonStyle(
+                    textStyle: WidgetStatePropertyAll(
+                      textTheme.labelSmall?.copyWith(fontSize: 10),
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 6),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -81,29 +106,27 @@ class _DetailContent extends StatelessWidget {
                 label: 'Key',
                 size: entry.key.length,
                 selectedFormat: state.keyFormat,
+                isValidUtf8: entry.keyAsUtf8 != null,
                 onFormatChanged: (fmt) {
                   context.read<EntryViewerCubit>().setKeyFormat(fmt);
                 },
                 onCopy: () => _copyToClipboard(
                   context,
-                  ValueDisplay.formatBytes(entry.key, state.keyFormat),
+                  ValueDisplay.formatBytes(
+                    entry.key,
+                    state.keyFormat,
+                    hexWidth: state.hexWidth,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                ),
+              _ValueContainer(
+                colorScheme: colorScheme,
                 child: ValueDisplay(
                   bytes: entry.key,
                   format: state.keyFormat,
                   label: 'Key',
+                  hexWidth: state.hexWidth,
                 ),
               ),
               const SizedBox(height: 20),
@@ -112,29 +135,27 @@ class _DetailContent extends StatelessWidget {
                 label: 'Value',
                 size: entry.value.length,
                 selectedFormat: state.valueFormat,
+                isValidUtf8: entry.valueAsUtf8 != null,
                 onFormatChanged: (fmt) {
                   context.read<EntryViewerCubit>().setValueFormat(fmt);
                 },
                 onCopy: () => _copyToClipboard(
                   context,
-                  ValueDisplay.formatBytes(entry.value, state.valueFormat),
+                  ValueDisplay.formatBytes(
+                    entry.value,
+                    state.valueFormat,
+                    hexWidth: state.hexWidth,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                ),
+              _ValueContainer(
+                colorScheme: colorScheme,
                 child: ValueDisplay(
                   bytes: entry.value,
                   format: state.valueFormat,
                   label: 'Value',
+                  hexWidth: state.hexWidth,
                 ),
               ),
             ],
@@ -157,12 +178,58 @@ class _DetailContent extends StatelessWidget {
   }
 }
 
+class _ValueContainer extends StatefulWidget {
+  final ColorScheme colorScheme;
+  final Widget child;
+
+  const _ValueContainer({required this.colorScheme, required this.child});
+
+  @override
+  State<_ValueContainer> createState() => _ValueContainerState();
+}
+
+class _ValueContainerState extends State<_ValueContainer> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      decoration: BoxDecoration(
+        color: widget.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: widget.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   final String label;
   final int size;
   final DisplayFormat selectedFormat;
   final ValueChanged<DisplayFormat> onFormatChanged;
   final VoidCallback onCopy;
+  final bool isValidUtf8;
 
   const _SectionHeader({
     required this.label,
@@ -170,6 +237,7 @@ class _SectionHeader extends StatelessWidget {
     required this.selectedFormat,
     required this.onFormatChanged,
     required this.onCopy,
+    required this.isValidUtf8,
   });
 
   @override
@@ -177,29 +245,55 @@ class _SectionHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+        Row(
+          children: [
+            Text(
+              label,
+              style: textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '($size bytes)',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            const SizedBox(width: 4),
+            SizedBox(
+              height: 28,
+              width: 28,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 16,
+                icon: const Icon(Icons.copy),
+                tooltip: 'Copy $label',
+                onPressed: onCopy,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 6),
-        Text(
-          '($size bytes)',
-          style: textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const Spacer(),
+        const SizedBox(height: 6),
         // Format toggle buttons
         SizedBox(
           height: 28,
           child: SegmentedButton<DisplayFormat>(
-            segments: const [
-              ButtonSegment(value: DisplayFormat.utf8, label: Text('UTF-8')),
-              ButtonSegment(value: DisplayFormat.hex, label: Text('Hex')),
-              ButtonSegment(value: DisplayFormat.base64, label: Text('B64')),
-              ButtonSegment(value: DisplayFormat.integer, label: Text('Int')),
+            segments: [
+              ButtonSegment(
+                value: DisplayFormat.utf8,
+                label: const Text('UTF-8'),
+                enabled: isValidUtf8,
+              ),
+              const ButtonSegment(value: DisplayFormat.hex, label: Text('Hex')),
+              const ButtonSegment(
+                value: DisplayFormat.base64,
+                label: Text('B64'),
+              ),
             ],
             selected: {selectedFormat},
             onSelectionChanged: (set) => onFormatChanged(set.first),
@@ -213,18 +307,6 @@ class _SectionHeader extends StatelessWidget {
                 EdgeInsets.symmetric(horizontal: 6),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        SizedBox(
-          height: 28,
-          width: 28,
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            iconSize: 16,
-            icon: const Icon(Icons.copy),
-            tooltip: 'Copy $label',
-            onPressed: onCopy,
           ),
         ),
       ],

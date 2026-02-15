@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
 
 import '../../models/database_entry.dart';
@@ -38,27 +40,28 @@ class ExplorerLoaded extends ExplorerState {
   /// Info/stats for the currently selected database.
   final DatabaseInfo? selectedDatabaseInfo;
 
-  /// The loaded entries for the current database.
-  final List<DatabaseEntry> entries;
+  /// Ordered list of all keys in the currently selected database.
+  /// Enables O(1) positional lookups and O(log n) cursor seeks.
+  final List<Uint8List> keyIndex;
 
-  /// Whether more entries can be loaded (pagination).
-  final bool hasMoreEntries;
+  /// Search results (populated only during an active search).
+  final List<DatabaseEntry> searchResults;
 
   /// The current search query (empty = no search active).
   final String searchQuery;
 
-  /// Whether entries are currently being loaded/searched.
-  final bool isLoadingEntries;
+  /// Whether a loading operation is in progress (key index building, search).
+  final bool isLoading;
 
   const ExplorerLoaded({
     required this.environmentPath,
     required this.databaseNames,
     required this.selectedDatabase,
     this.selectedDatabaseInfo,
-    this.entries = const [],
-    this.hasMoreEntries = false,
+    this.keyIndex = const [],
+    this.searchResults = const [],
     this.searchQuery = '',
-    this.isLoadingEntries = false,
+    this.isLoading = false,
   });
 
   ExplorerLoaded copyWith({
@@ -66,10 +69,10 @@ class ExplorerLoaded extends ExplorerState {
     List<String>? databaseNames,
     String? Function()? selectedDatabase,
     DatabaseInfo? Function()? selectedDatabaseInfo,
-    List<DatabaseEntry>? entries,
-    bool? hasMoreEntries,
+    List<Uint8List>? keyIndex,
+    List<DatabaseEntry>? searchResults,
     String? searchQuery,
-    bool? isLoadingEntries,
+    bool? isLoading,
   }) {
     return ExplorerLoaded(
       environmentPath: environmentPath ?? this.environmentPath,
@@ -80,10 +83,10 @@ class ExplorerLoaded extends ExplorerState {
       selectedDatabaseInfo: selectedDatabaseInfo != null
           ? selectedDatabaseInfo()
           : this.selectedDatabaseInfo,
-      entries: entries ?? this.entries,
-      hasMoreEntries: hasMoreEntries ?? this.hasMoreEntries,
+      keyIndex: keyIndex ?? this.keyIndex,
+      searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
-      isLoadingEntries: isLoadingEntries ?? this.isLoadingEntries,
+      isLoading: isLoading ?? this.isLoading,
     );
   }
 
@@ -93,10 +96,11 @@ class ExplorerLoaded extends ExplorerState {
     databaseNames,
     selectedDatabase,
     selectedDatabaseInfo,
-    entries,
-    hasMoreEntries,
+    // Use identity hash to avoid expensive deep comparison of large lists.
+    identityHashCode(keyIndex),
+    identityHashCode(searchResults),
     searchQuery,
-    isLoadingEntries,
+    isLoading,
   ];
 }
 

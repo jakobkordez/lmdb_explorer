@@ -1,19 +1,11 @@
 import 'dart:typed_data';
 
-import 'package:dart_lmdb2/lmdb.dart';
+import 'package:dart_lmdb/dart_lmdb.dart';
 
 import '../models/database_entry.dart';
 import '../models/database_info.dart';
 
-/// Result of a paginated entry query.
-class EntryPage {
-  final List<DatabaseEntry> entries;
-  final bool hasMore;
-
-  const EntryPage({required this.entries, required this.hasMore});
-}
-
-/// Service that wraps the dart_lmdb2 [LMDB] class for read-only browsing.
+/// Service that wraps the flutter_lmdb2 [LMDB] class for read-only browsing.
 class LmdbService {
   LMDB? _db;
 
@@ -77,16 +69,48 @@ class LmdbService {
     );
   }
 
-  /// Fetches a page of entries from [dbName] using cursor iteration.
+  /// Builds an ordered index of all keys in [dbName].
   ///
-  /// [offset] is the number of entries to skip.
-  /// [limit] is the maximum number of entries to return.
-  Future<EntryPage> getEntries(
-    String? dbName, {
-    int offset = 0,
-    int limit = 100,
-  }) async {
+  /// This iterates through the entire database but only stores keys (not
+  /// values). The resulting list maps positional index → key bytes, enabling
+  /// O(1) index-to-key lookups and O(log n) cursor seeks via [getEntryRange].
+  ///
+  /// Uses [LMDB.getAllKeys] which performs the cursor iteration in a single
+  /// synchronous FFI loop, avoiding per-entry async overhead and unnecessary
+  /// value copying.
+  Future<List<Uint8List>> buildKeyIndex(String? dbName) async {
     _ensureOpen();
+
+    final txn = await _db!.txnStart(flags: LMDBFlagSet.readOnly);
+    try {
+      final keys = await _db!.getAllKeys(txn, dbName: dbName);
+      // Commit (not abort) read-only transactions so that named-database
+      // DBI handles opened during the txn are persisted to the environment
+      // (mdb_dbis_update with keep=1 sets MDB_VALID in me_dbflags).
+      // Aborting would clear DB_NEW handles, invalidating cached DBIs.
+      await _db!.txnCommit(txn);
+      return keys;
+    } catch (e) {
+      await _db!.txnAbort(txn);
+      rethrow;
+    }
+  }
+
+  /// Fetches entries for indices [startIndex] to [startIndex + count - 1]
+  /// using the [keyIndex] to seek directly to the starting key.
+  ///
+  /// This opens a short-lived read transaction, seeks to the start key via
+  /// [CursorOp.setKey] (O(log n)), then reads forward [count] entries.
+  Future<List<DatabaseEntry>> getEntryRange(
+    String? dbName,
+    List<Uint8List> keyIndex,
+    int startIndex,
+    int count,
+  ) async {
+    _ensureOpen();
+    if (startIndex < 0 || startIndex >= keyIndex.length) return [];
+
+    final end = (startIndex + count).clamp(0, keyIndex.length);
 
     final txn = await _db!.txnStart(flags: LMDBFlagSet.readOnly);
     try {
@@ -94,42 +118,88 @@ class LmdbService {
       try {
         final entries = <DatabaseEntry>[];
 
-        // Position at first entry
-        var entry = await _db!.cursorGet(cursor, null, CursorOp.first);
+        // Seek directly to the start key — O(log n)
+        final startKey = keyIndex[startIndex];
+        var entry = await _db!.cursorGet(cursor, startKey, CursorOp.setKey);
+        if (entry == null) return [];
 
-        // Skip [offset] entries
-        var skipped = 0;
-        while (entry != null && skipped < offset) {
+        entries.add(
+          DatabaseEntry(
+            key: Uint8List.fromList(entry.key),
+            value: Uint8List.fromList(entry.data),
+          ),
+        );
+
+        // Read forward for the remaining entries — O(count)
+        for (var i = startIndex + 1; i < end; i++) {
           entry = await _db!.cursorGet(cursor, null, CursorOp.next);
-          skipped++;
-        }
-
-        // Collect up to [limit] entries
-        while (entry != null && entries.length < limit) {
+          if (entry == null) break;
           entries.add(
             DatabaseEntry(
               key: Uint8List.fromList(entry.key),
               value: Uint8List.fromList(entry.data),
             ),
           );
-          entry = await _db!.cursorGet(cursor, null, CursorOp.next);
         }
 
-        // Check if there are more entries after this page
-        final hasMore = entry != null;
-
-        return EntryPage(entries: entries, hasMore: hasMore);
+        return entries;
       } finally {
         _db!.cursorClose(cursor);
       }
     } finally {
-      await _db!.txnAbort(txn);
+      // Commit (not abort) read-only transactions so that named-database
+      // DBI handles opened during the txn are persisted to the environment
+      // (mdb_dbis_update with keep=1 sets MDB_VALID in me_dbflags).
+      // Aborting would clear DB_NEW handles, invalidating cached DBIs.
+      await _db!.txnCommit(txn);
+    }
+  }
+
+  /// Fetches entries for a set of specific keys using cursor seeks.
+  ///
+  /// Each key is looked up individually via [CursorOp.setKey] (O(log n) each).
+  /// This is efficient when the number of keys is small (e.g. search results).
+  Future<List<DatabaseEntry>> getEntriesByKeys(
+    String? dbName,
+    List<Uint8List> keys,
+  ) async {
+    _ensureOpen();
+    if (keys.isEmpty) return [];
+
+    final txn = await _db!.txnStart(flags: LMDBFlagSet.readOnly);
+    try {
+      final cursor = await _db!.cursorOpen(txn, dbName: dbName);
+      try {
+        final entries = <DatabaseEntry>[];
+        for (final key in keys) {
+          final entry = await _db!.cursorGet(cursor, key, CursorOp.setKey);
+          if (entry != null) {
+            entries.add(
+              DatabaseEntry(
+                key: Uint8List.fromList(entry.key),
+                value: Uint8List.fromList(entry.data),
+              ),
+            );
+          }
+        }
+        return entries;
+      } finally {
+        _db!.cursorClose(cursor);
+      }
+    } finally {
+      // Commit (not abort) read-only transactions so that named-database
+      // DBI handles opened during the txn are persisted to the environment
+      // (mdb_dbis_update with keep=1 sets MDB_VALID in me_dbflags).
+      // Aborting would clear DB_NEW handles, invalidating cached DBIs.
+      await _db!.txnCommit(txn);
     }
   }
 
   /// Searches entries in [dbName] whose key contains [query] (UTF-8 comparison).
   ///
   /// This scans all entries, so it may be slow for large databases.
+  /// Prefer using [getEntriesByKeys] with a pre-filtered key index when
+  /// a key index is available.
   /// [limit] caps the number of results returned.
   Future<List<DatabaseEntry>> searchEntries(
     String? dbName,
@@ -166,7 +236,11 @@ class LmdbService {
         _db!.cursorClose(cursor);
       }
     } finally {
-      await _db!.txnAbort(txn);
+      // Commit (not abort) read-only transactions so that named-database
+      // DBI handles opened during the txn are persisted to the environment
+      // (mdb_dbis_update with keep=1 sets MDB_VALID in me_dbflags).
+      // Aborting would clear DB_NEW handles, invalidating cached DBIs.
+      await _db!.txnCommit(txn);
     }
   }
 

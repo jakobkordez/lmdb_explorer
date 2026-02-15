@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../models/database_entry.dart';
 import '../../services/lmdb_service.dart';
 import 'explorer_event.dart';
 import 'explorer_state.dart';
@@ -7,14 +10,11 @@ import 'explorer_state.dart';
 class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
   final LmdbService _lmdbService;
 
-  static const int _pageSize = 100;
-
   ExplorerBloc({required LmdbService lmdbService})
     : _lmdbService = lmdbService,
       super(const ExplorerInitial()) {
     on<OpenEnvironment>(_onOpenEnvironment);
     on<SelectDatabase>(_onSelectDatabase);
-    on<LoadMoreEntries>(_onLoadMoreEntries);
     on<SearchEntries>(_onSearchEntries);
     on<ClearSearch>(_onClearSearch);
     on<CloseEnvironment>(_onCloseEnvironment);
@@ -38,7 +38,7 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
         ),
       );
 
-      // Auto-load the default database entries
+      // Auto-load the default database
       add(const SelectDatabase(null));
     } catch (e) {
       emit(ExplorerError('Failed to open environment: $e'));
@@ -55,20 +55,16 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
     emit(
       current.copyWith(
         selectedDatabase: () => event.dbName,
-        entries: const [],
-        hasMoreEntries: false,
+        keyIndex: const [],
+        searchResults: const [],
         searchQuery: '',
-        isLoadingEntries: true,
+        isLoading: true,
       ),
     );
 
     try {
       final info = await _lmdbService.getDatabaseInfo(event.dbName);
-      final page = await _lmdbService.getEntries(
-        event.dbName,
-        offset: 0,
-        limit: _pageSize,
-      );
+      final keyIndex = await _lmdbService.buildKeyIndex(event.dbName);
 
       final loaded = state;
       if (loaded is! ExplorerLoaded) return;
@@ -76,52 +72,13 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
       emit(
         loaded.copyWith(
           selectedDatabaseInfo: () => info,
-          entries: page.entries,
-          hasMoreEntries: page.hasMore,
-          isLoadingEntries: false,
+          keyIndex: keyIndex,
+          isLoading: false,
         ),
       );
     } catch (e) {
       emit(
         ExplorerError('Failed to load database: $e', previousState: current),
-      );
-    }
-  }
-
-  Future<void> _onLoadMoreEntries(
-    LoadMoreEntries event,
-    Emitter<ExplorerState> emit,
-  ) async {
-    final current = state;
-    if (current is! ExplorerLoaded) return;
-    if (current.isLoadingEntries || !current.hasMoreEntries) return;
-    if (current.searchQuery.isNotEmpty) return; // no pagination for search
-
-    emit(current.copyWith(isLoadingEntries: true));
-
-    try {
-      final page = await _lmdbService.getEntries(
-        current.selectedDatabase,
-        offset: current.entries.length,
-        limit: _pageSize,
-      );
-
-      final loaded = state;
-      if (loaded is! ExplorerLoaded) return;
-
-      emit(
-        loaded.copyWith(
-          entries: [...loaded.entries, ...page.entries],
-          hasMoreEntries: page.hasMore,
-          isLoadingEntries: false,
-        ),
-      );
-    } catch (e) {
-      emit(
-        ExplorerError(
-          'Failed to load more entries: $e',
-          previousState: current,
-        ),
       );
     }
   }
@@ -138,27 +95,62 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
       return;
     }
 
-    emit(current.copyWith(searchQuery: event.query, isLoadingEntries: true));
+    emit(current.copyWith(searchQuery: event.query, isLoading: true));
 
     try {
-      final results = await _lmdbService.searchEntries(
-        current.selectedDatabase,
-        event.query,
-      );
+      List<DatabaseEntry> results;
+
+      if (current.keyIndex.isNotEmpty) {
+        // Fast path: filter keys in memory, then fetch values only for matches.
+        results = await _searchWithKeyIndex(
+          current.selectedDatabase,
+          current.keyIndex,
+          event.query,
+        );
+      } else {
+        // Fallback: full cursor scan (key index not yet built).
+        results = await _lmdbService.searchEntries(
+          current.selectedDatabase,
+          event.query,
+        );
+      }
 
       final loaded = state;
       if (loaded is! ExplorerLoaded) return;
 
       emit(
         loaded.copyWith(
-          entries: results,
-          hasMoreEntries: false,
-          isLoadingEntries: false,
+          searchResults: results,
+          isLoading: false,
         ),
       );
     } catch (e) {
       emit(ExplorerError('Search failed: $e', previousState: current));
     }
+  }
+
+  /// Searches by filtering the key index in memory (no DB I/O for non-matches),
+  /// then fetches full entries only for matching keys.
+  Future<List<DatabaseEntry>> _searchWithKeyIndex(
+    String? dbName,
+    List<Uint8List> keyIndex,
+    String query, {
+    int limit = 200,
+  }) async {
+    final queryLower = query.toLowerCase();
+
+    // Phase 1: filter keys in memory — very fast.
+    final matchingKeys = <Uint8List>[];
+    for (final key in keyIndex) {
+      final keyStr = DatabaseEntry.keyDisplayForBytes(key).toLowerCase();
+      if (keyStr.contains(queryLower)) {
+        matchingKeys.add(key);
+        if (matchingKeys.length >= limit) break;
+      }
+    }
+
+    // Phase 2: fetch full entries (key + value) for matching keys only.
+    return _lmdbService.getEntriesByKeys(dbName, matchingKeys);
   }
 
   Future<void> _onClearSearch(
@@ -171,33 +163,9 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
     emit(
       current.copyWith(
         searchQuery: '',
-        entries: const [],
-        isLoadingEntries: true,
+        searchResults: const [],
       ),
     );
-
-    try {
-      final page = await _lmdbService.getEntries(
-        current.selectedDatabase,
-        offset: 0,
-        limit: _pageSize,
-      );
-
-      final loaded = state;
-      if (loaded is! ExplorerLoaded) return;
-
-      emit(
-        loaded.copyWith(
-          entries: page.entries,
-          hasMoreEntries: page.hasMore,
-          isLoadingEntries: false,
-        ),
-      );
-    } catch (e) {
-      emit(
-        ExplorerError('Failed to reload entries: $e', previousState: current),
-      );
-    }
   }
 
   Future<void> _onCloseEnvironment(

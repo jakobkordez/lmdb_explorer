@@ -7,8 +7,25 @@ class EntryViewerCubit extends Cubit<EntryViewerState> {
   EntryViewerCubit() : super(const EntryViewerState());
 
   /// Select an entry to display in the detail panel.
+  /// Automatically switches to hex if the current format is UTF-8 but the
+  /// bytes are not valid UTF-8.
   void selectEntry(DatabaseEntry entry) {
-    emit(state.copyWith(selectedEntry: () => entry));
+    final keyFormat =
+        state.keyFormat == DisplayFormat.utf8 && entry.keyAsUtf8 == null
+        ? DisplayFormat.hex
+        : state.keyFormat;
+    final valueFormat =
+        state.valueFormat == DisplayFormat.utf8 && entry.valueAsUtf8 == null
+        ? DisplayFormat.hex
+        : state.valueFormat;
+
+    emit(
+      state.copyWith(
+        selectedEntry: () => entry,
+        keyFormat: keyFormat,
+        valueFormat: valueFormat,
+      ),
+    );
   }
 
   /// Clear the selected entry.
@@ -24,5 +41,11 @@ class EntryViewerCubit extends Cubit<EntryViewerState> {
   /// Change how the value bytes are displayed.
   void setValueFormat(DisplayFormat format) {
     emit(state.copyWith(valueFormat: format));
+  }
+
+  /// Change the hex dump width (8 or 16 bytes per line).
+  void setHexWidth(int width) {
+    assert(width == 8 || width == 16);
+    emit(state.copyWith(hexWidth: width));
   }
 }

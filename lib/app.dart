@@ -56,7 +56,7 @@ class _LmdbExplorerAppState extends State<LmdbExplorerApp> {
             useMaterial3: true,
             fontFamily: 'Segoe UI',
           ),
-          themeMode: ThemeMode.system,
+          themeMode: ThemeMode.light,
           home: const HomePage(),
         ),
       ),

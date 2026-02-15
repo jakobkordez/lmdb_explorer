@@ -26,11 +26,6 @@ class SelectDatabase extends ExplorerEvent {
   List<Object?> get props => [dbName];
 }
 
-/// Load the next page of entries (pagination).
-class LoadMoreEntries extends ExplorerEvent {
-  const LoadMoreEntries();
-}
-
 /// User typed a search query to filter entries by key.
 class SearchEntries extends ExplorerEvent {
   final String query;
