@@ -3,6 +3,8 @@ name: Build
 on:
   push:
     branches: [master, main]
+    tags:
+      - 'v*'
   pull_request:
     branches: [master, main]
 
@@ -61,3 +63,31 @@ jobs:
         with:
           name: lmdb-explorer-windows
           path: build/windows/x64/runner/Release/
+
+  release:
+    name: Create Release
+    needs: build
+    if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Zip Linux bundle
+        run: zip -r lmdb-explorer-linux-x64.zip lmdb-explorer-linux/
+
+      - name: Zip Windows bundle
+        run: zip -r lmdb-explorer-windows-x64.zip lmdb-explorer-windows/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            lmdb-explorer-linux-x64.zip
+            lmdb-explorer-windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
