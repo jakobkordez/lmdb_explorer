@@ -24,9 +24,6 @@ cd lmdb_explorer
 # Install dependencies
 flutter pub get
 
-# Download the native LMDB library (lmdb.dll / liblmdb.so)
-dart run dart_lmdb2:fetch_native
-
 # Run the app
 flutter run
 ```
