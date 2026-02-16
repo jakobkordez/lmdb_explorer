@@ -122,6 +122,7 @@ class _DetailContent extends StatelessWidget {
               const SizedBox(height: 6),
               _ValueContainer(
                 colorScheme: colorScheme,
+                enableHorizontalScroll: state.keyFormat != DisplayFormat.base64,
                 child: ValueDisplay(
                   bytes: entry.key,
                   format: state.keyFormat,
@@ -151,6 +152,8 @@ class _DetailContent extends StatelessWidget {
               const SizedBox(height: 6),
               _ValueContainer(
                 colorScheme: colorScheme,
+                enableHorizontalScroll:
+                    state.valueFormat != DisplayFormat.base64,
                 child: ValueDisplay(
                   bytes: entry.value,
                   format: state.valueFormat,
@@ -181,8 +184,13 @@ class _DetailContent extends StatelessWidget {
 class _ValueContainer extends StatefulWidget {
   final ColorScheme colorScheme;
   final Widget child;
+  final bool enableHorizontalScroll;
 
-  const _ValueContainer({required this.colorScheme, required this.child});
+  const _ValueContainer({
+    required this.colorScheme,
+    required this.child,
+    this.enableHorizontalScroll = true,
+  });
 
   @override
   State<_ValueContainer> createState() => _ValueContainerState();
@@ -209,16 +217,21 @@ class _ValueContainerState extends State<_ValueContainer> {
           color: widget.colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
-      child: Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: true,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          controller: _scrollController,
-          scrollDirection: Axis.horizontal,
-          child: widget.child,
-        ),
-      ),
+      child: widget.enableHorizontalScroll
+          ? Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                child: widget.child,
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: widget.child,
+            ),
     );
   }
 }
