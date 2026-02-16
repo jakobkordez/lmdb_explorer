@@ -54,8 +54,8 @@ class ValueDisplay extends StatelessWidget {
         return _toHexDump(bytes, bytesPerLine: hexWidth);
       case DisplayFormat.base64:
         return base64Encode(bytes);
-      case DisplayFormat.integer:
-        return _toIntegerDisplay(bytes);
+      case DisplayFormat.flatbuffers:
+        return '[FlatBuffers view is only available in the value panel.]';
     }
   }
 

@@ -48,4 +48,14 @@ class EntryViewerCubit extends Cubit<EntryViewerState> {
     assert(width == 8 || width == 16);
     emit(state.copyWith(hexWidth: width));
   }
+
+  /// Set or clear the selected FlatBuffers schema path.
+  void setFlatBuffersSchemaPath(String? schemaPath) {
+    emit(state.copyWith(flatBuffersSchemaPath: () => schemaPath));
+  }
+
+  /// Set or clear the selected FlatBuffers root table name.
+  void setFlatBuffersTableName(String? tableName) {
+    emit(state.copyWith(flatBuffersTableName: () => tableName));
+  }
 }
