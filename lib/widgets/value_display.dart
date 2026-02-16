@@ -95,34 +95,4 @@ class ValueDisplay extends StatelessWidget {
     }
     return buffer.toString();
   }
-
-  /// Interpret bytes as integer values.
-  static String _toIntegerDisplay(Uint8List bytes) {
-    final lines = <String>[];
-    final bd = ByteData.sublistView(bytes);
-
-    if (bytes.isNotEmpty) {
-      lines.add('uint8:  ${bytes[0]}');
-      lines.add('int8:   ${bd.getInt8(0)}');
-    }
-    if (bytes.length >= 2) {
-      lines.add('uint16 (LE): ${bd.getUint16(0, Endian.little)}');
-      lines.add('uint16 (BE): ${bd.getUint16(0, Endian.big)}');
-    }
-    if (bytes.length >= 4) {
-      lines.add('int32  (LE): ${bd.getInt32(0, Endian.little)}');
-      lines.add('int32  (BE): ${bd.getInt32(0, Endian.big)}');
-      lines.add('uint32 (LE): ${bd.getUint32(0, Endian.little)}');
-      lines.add('float32(LE): ${bd.getFloat32(0, Endian.little)}');
-    }
-    if (bytes.length >= 8) {
-      lines.add('int64  (LE): ${bd.getInt64(0, Endian.little)}');
-      lines.add('int64  (BE): ${bd.getInt64(0, Endian.big)}');
-      lines.add('float64(LE): ${bd.getFloat64(0, Endian.little)}');
-    }
-    if (bytes.isEmpty) {
-      return '(empty)';
-    }
-    return lines.join('\n');
-  }
 }
