@@ -334,6 +334,7 @@ class _SectionHeader extends StatelessWidget {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -367,12 +368,31 @@ class _SectionHeader extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         // Format toggle buttons
-        SizedBox(
-          height: 28,
-          child: SegmentedButton<DisplayFormat>(
-            segments: segments,
-            selected: {selectedFormat},
-            onSelectionChanged: (set) => onFormatChanged(set.first),
+        SegmentedButton<DisplayFormat>(
+          segments: segments,
+          selected: {selectedFormat},
+          onSelectionChanged: (set) => onFormatChanged(set.first),
+          style: ButtonStyle(
+            textStyle: WidgetStatePropertyAll(
+              textTheme.labelSmall?.copyWith(fontSize: 10),
+            ),
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 6),
+            ),
+          ),
+        ),
+        if (onHexWidthChanged != null &&
+            selectedFormat == DisplayFormat.hex) ...[
+          const SizedBox(height: 6),
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 8, label: Text('8')),
+              ButtonSegment(value: 16, label: Text('16')),
+            ],
+            selected: {hexWidth},
+            onSelectionChanged: (set) => onHexWidthChanged!(set.first),
             style: ButtonStyle(
               textStyle: WidgetStatePropertyAll(
                 textTheme.labelSmall?.copyWith(fontSize: 10),
@@ -381,31 +401,6 @@ class _SectionHeader extends StatelessWidget {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               padding: const WidgetStatePropertyAll(
                 EdgeInsets.symmetric(horizontal: 6),
-              ),
-            ),
-          ),
-        ),
-        if (onHexWidthChanged != null &&
-            selectedFormat == DisplayFormat.hex) ...[
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 26,
-            child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 8, label: Text('8')),
-                ButtonSegment(value: 16, label: Text('16')),
-              ],
-              selected: {hexWidth},
-              onSelectionChanged: (set) => onHexWidthChanged!(set.first),
-              style: ButtonStyle(
-                textStyle: WidgetStatePropertyAll(
-                  textTheme.labelSmall?.copyWith(fontSize: 10),
-                ),
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(horizontal: 6),
-                ),
               ),
             ),
           ),
@@ -430,43 +425,24 @@ class _SectionHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  if (schemaPath == null)
-                    Tooltip(
-                      message: 'Select FlatBuffers schema (.fbs)',
-                      child: SizedBox(
-                        height: 28,
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          onPressed: onPickSchema,
-                          icon: Icon(
-                            Icons.schema_outlined,
-                            size: 14,
-                            color: colorScheme.primary,
-                          ),
-                          label: Text('Select…', style: textTheme.labelSmall),
-                        ),
-                      ),
-                    )
-                  else
-                    InputChip(
-                      label: Text(
-                        schemaPath!
-                            .replaceAll(RegExp(r'[/\\]'), '/')
-                            .split('/')
-                            .last,
-                        style: textTheme.labelSmall,
-                      ),
-                      deleteIcon: const Icon(Icons.close, size: 16),
-                      onDeleted: onClearSchema,
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 0,
-                      ),
+                  InputChip(
+                    label: Text(
+                      schemaPath
+                              ?.replaceAll(RegExp(r'[/\\]'), '/')
+                              .split('/')
+                              .last ??
+                          'Select…',
+                      style: textTheme.labelSmall,
                     ),
+                    onPressed: schemaPath == null ? onPickSchema : null,
+                    deleteIcon: const Icon(Icons.close, size: 16),
+                    onDeleted: onClearSchema,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
                 ],
               ),
               if (tableSelector != null)
@@ -658,6 +634,8 @@ class _FlatBuffersTableDropdownState extends State<_FlatBuffersTableDropdown> {
           constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String?>(
+              borderRadius: BorderRadius.circular(8),
+              isDense: true,
               value: widget.value != null && widget.value!.isNotEmpty
                   ? widget.value
                   : null,
@@ -683,15 +661,7 @@ class _FlatBuffersTableDropdownState extends State<_FlatBuffersTableDropdown> {
         );
       },
     );
-    return SizedBox(
-      height: 28,
-      child: Container(
-        decoration: _outlinedDecoration(context),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-        alignment: Alignment.centerLeft,
-        child: content,
-      ),
-    );
+    return Container(decoration: _outlinedDecoration(context), child: content);
   }
 }
 
