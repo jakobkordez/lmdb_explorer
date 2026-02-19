@@ -42,7 +42,7 @@ class _LmdbExplorerAppState extends State<LmdbExplorerApp> {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF2E7D32),
+              seedColor: const Color(0xFF009687),
               brightness: Brightness.light,
             ),
             useMaterial3: true,
@@ -50,7 +50,7 @@ class _LmdbExplorerAppState extends State<LmdbExplorerApp> {
           ),
           darkTheme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF4CAF50),
+              seedColor: const Color(0xFF009687),
               brightness: Brightness.dark,
             ),
             useMaterial3: true,

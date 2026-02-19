@@ -7,6 +7,7 @@ import '../bloc/explorer/explorer_bloc.dart';
 import '../bloc/explorer/explorer_event.dart';
 import '../bloc/explorer/explorer_state.dart';
 import '../widgets/database_sidebar.dart';
+import '../widgets/desktop_app_bar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/entry_detail_panel.dart';
 import '../widgets/entry_table.dart';
@@ -30,68 +31,19 @@ class HomePage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: BlocBuilder<ExplorerBloc, ExplorerState>(
-          builder: (context, state) {
-            if (state is ExplorerLoaded) {
-              return Row(
-                children: [
-                  const Icon(Icons.storage, size: 20),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      state.environmentPath,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              );
-            }
-            return const Text('LMDB Explorer');
-          },
-        ),
-        actions: [
-          BlocBuilder<ExplorerBloc, ExplorerState>(
-            builder: (context, state) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  FilledButton.icon(
-                    onPressed: () => _openEnvironment(context),
-                    icon: const Icon(Icons.folder_open, size: 18),
-                    label: const Text('Open'),
-                  ),
-                  if (state is ExplorerLoaded) ...[
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        context.read<EntryViewerCubit>().clearSelection();
-                        context.read<ExplorerBloc>().add(
-                          const CloseEnvironment(),
-                        );
-                      },
-                      icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Close'),
-                    ),
-                  ],
-                ],
-              );
-            },
-          ),
-          const SizedBox(width: 12),
-        ],
-        backgroundColor: colorScheme.surfaceContainerLow,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-      ),
+      appBar: const DesktopAppBar(),
       body: BlocBuilder<ExplorerBloc, ExplorerState>(
         builder: (context, state) {
           return switch (state) {
-            ExplorerInitial() => const EmptyState(
+            ExplorerInitial() => EmptyState(
               icon: Icons.folder_open_outlined,
               title: 'No Environment Open',
-              subtitle: 'Click "Open" to select an LMDB environment directory.',
+              subtitle: 'Select an LMDB environment directory to explore.',
+              action: FilledButton.icon(
+                onPressed: () => _openEnvironment(context),
+                icon: const Icon(Icons.folder_open_rounded, size: 20),
+                label: const Text('Open environment'),
+              ),
             ),
             ExplorerLoading(:final path) => Center(
               child: Column(
@@ -159,7 +111,6 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _LoadedLayout extends StatefulWidget {
@@ -193,6 +144,10 @@ class _LoadedLayoutState extends State<_LoadedLayout> {
             databaseNames: state.databaseNames,
             selectedDatabase: state.selectedDatabase,
             environmentPath: state.environmentPath,
+            onClose: () {
+              context.read<EntryViewerCubit>().clearSelection();
+              context.read<ExplorerBloc>().add(const CloseEnvironment());
+            },
           ),
         ),
         const VerticalDivider(width: 1, thickness: 1),
@@ -210,16 +165,16 @@ class _LoadedLayoutState extends State<_LoadedLayout> {
         MouseRegion(
           cursor: SystemMouseCursors.resizeColumn,
           child: GestureDetector(
-            onHorizontalDragStart: (_) =>
-                setState(() => _isDragging = true),
+            onHorizontalDragStart: (_) => setState(() => _isDragging = true),
             onHorizontalDragUpdate: (details) {
               setState(() {
-                _detailWidth = (_detailWidth - details.delta.dx)
-                    .clamp(_minDetailWidth, _maxDetailWidth);
+                _detailWidth = (_detailWidth - details.delta.dx).clamp(
+                  _minDetailWidth,
+                  _maxDetailWidth,
+                );
               });
             },
-            onHorizontalDragEnd: (_) =>
-                setState(() => _isDragging = false),
+            onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
             child: Container(
               width: 5,
               color: _isDragging

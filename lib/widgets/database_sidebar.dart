@@ -12,12 +12,14 @@ class DatabaseSidebar extends StatelessWidget {
   final List<String> databaseNames;
   final String? selectedDatabase;
   final String environmentPath;
+  final VoidCallback onClose;
 
   const DatabaseSidebar({
     super.key,
     required this.databaseNames,
     required this.selectedDatabase,
     required this.environmentPath,
+    required this.onClose,
   });
 
   @override
@@ -30,7 +32,7 @@ class DatabaseSidebar extends StatelessWidget {
       children: [
         // Header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           color: colorScheme.surfaceContainerLow,
           child: Row(
             children: [
@@ -44,6 +46,13 @@ class DatabaseSidebar extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 2),
+              _HeaderIconButton(
+                icon: Icons.close_rounded,
+                tooltip: 'Close environment',
+                onPressed: onClose,
+              ),
+              const SizedBox(width: 2),
               SizedBox(
                 height: 28,
                 width: 28,
@@ -127,6 +136,35 @@ class DatabaseSidebar extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        height: 28,
+        width: 28,
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          iconSize: 16,
+          icon: Icon(icon),
+          onPressed: onPressed,
+        ),
+      ),
+    );
   }
 }
 
