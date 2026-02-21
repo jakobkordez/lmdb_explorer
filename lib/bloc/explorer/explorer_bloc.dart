@@ -127,9 +127,8 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
   Future<List<DatabaseEntry>> _searchWithKeyIndex(
     String? dbName,
     List<Uint8List> keyIndex,
-    String query, {
-    int limit = 200,
-  }) async {
+    String query,
+  ) async {
     final queryLower = query.toLowerCase();
 
     // Phase 1: filter keys in memory — very fast.
@@ -138,7 +137,6 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
       final keyStr = DatabaseEntry.keyDisplayForBytes(key).toLowerCase();
       if (keyStr.contains(queryLower)) {
         matchingKeys.add(key);
-        if (matchingKeys.length >= limit) break;
       }
     }
 

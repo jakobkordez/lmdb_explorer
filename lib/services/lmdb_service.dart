@@ -203,9 +203,8 @@ class LmdbService {
   /// [limit] caps the number of results returned.
   Future<List<DatabaseEntry>> searchEntries(
     String? dbName,
-    String query, {
-    int limit = 200,
-  }) async {
+    String query,
+  ) async {
     _ensureOpen();
     final queryLower = query.toLowerCase();
 
@@ -216,7 +215,7 @@ class LmdbService {
         final results = <DatabaseEntry>[];
         var entry = await _db!.cursorGet(cursor, null, CursorOp.first);
 
-        while (entry != null && results.length < limit) {
+        while (entry != null) {
           final dbEntry = DatabaseEntry(
             key: Uint8List.fromList(entry.key),
             value: Uint8List.fromList(entry.data),
