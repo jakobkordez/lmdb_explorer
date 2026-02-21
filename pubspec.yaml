@@ -2,7 +2,7 @@ name: lmdb_explorer
 description: "A Flutter LMDB explorer"
 publish_to: "none"
 
-version: 1.3.0
+version: 1.4.0
 
 environment:
   sdk: ^3.10.0
