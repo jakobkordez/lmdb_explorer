@@ -25,16 +25,8 @@ class DesktopAppBar extends StatelessWidget implements PreferredSizeWidget {
       children: [
         Material(
           color: colorScheme.surface,
-          child: Container(
+          child: SizedBox(
             height: _height,
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-                  width: 1,
-                ),
-              ),
-            ),
             child: Row(
               children: [
                 const SizedBox(width: 12),
@@ -75,10 +67,10 @@ class DesktopAppBar extends StatelessWidget implements PreferredSizeWidget {
                                   Expanded(
                                     child: Text(
                                       state.environmentPath,
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -116,7 +108,9 @@ class _WindowControls extends StatelessWidget {
           onPressed: windowManager.minimize,
           hoverColor: colorScheme.onSurface.withValues(alpha: 0.08),
         ),
-        _MaximizeButton(hoverColor: colorScheme.onSurface.withValues(alpha: 0.08)),
+        _MaximizeButton(
+          hoverColor: colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
         _WindowButton(
           icon: Icons.close_rounded,
           onPressed: windowManager.close,
@@ -163,7 +157,9 @@ class _MaximizeButtonState extends State<_MaximizeButton> with WindowListener {
   @override
   Widget build(BuildContext context) {
     return _WindowButton(
-      icon: _isMaximized ? Icons.filter_none_rounded : Icons.crop_square_rounded,
+      icon: _isMaximized
+          ? Icons.filter_none_rounded
+          : Icons.crop_square_rounded,
       onPressed: () async {
         if (await windowManager.isMaximized()) {
           windowManager.unmaximize();
@@ -212,9 +208,7 @@ class _WindowButtonState extends State<_WindowButton> {
           width: 46,
           height: DesktopAppBar._height,
           color: _hovering ? widget.hoverColor : Colors.transparent,
-          child: Center(
-            child: Icon(widget.icon, size: 16, color: iconColor),
-          ),
+          child: Center(child: Icon(widget.icon, size: 16, color: iconColor)),
         ),
       ),
     );

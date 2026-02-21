@@ -126,57 +126,67 @@ class _LoadedLayoutState extends State<_LoadedLayout> {
     final colorScheme = Theme.of(context).colorScheme;
     final state = widget.state;
 
-    return Row(
-      children: [
-        // Left panel: Database sidebar
-        SizedBox(
-          width: 220,
-          child: DatabaseSidebar(
-            databaseNames: state.databaseNames,
-            selectedDatabase: state.selectedDatabase,
-            environmentPath: state.environmentPath,
-            onClose: () {
-              context.read<EntryViewerCubit>().clearSelection();
-              context.read<ExplorerBloc>().add(const CloseEnvironment());
-            },
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+            width: 1,
           ),
         ),
-        const VerticalDivider(width: 1, thickness: 1),
-        // Center panel: Entry table
-        Expanded(
-          child: EntryTable(
-            keyIndex: state.keyIndex,
-            searchResults: state.searchResults,
-            selectedDatabase: state.selectedDatabase,
-            searchQuery: state.searchQuery,
-            isLoading: state.isLoading,
-          ),
-        ),
-        // Draggable resize handle
-        MouseRegion(
-          cursor: SystemMouseCursors.resizeColumn,
-          child: GestureDetector(
-            onHorizontalDragStart: (_) => setState(() => _isDragging = true),
-            onHorizontalDragUpdate: (details) {
-              setState(() {
-                _detailWidth = (_detailWidth - details.delta.dx).clamp(
-                  _minDetailWidth,
-                  _maxDetailWidth,
-                );
-              });
-            },
-            onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
-            child: Container(
-              width: 5,
-              color: _isDragging
-                  ? colorScheme.primary
-                  : colorScheme.outlineVariant.withValues(alpha: 0.5),
+      ),
+      child: Row(
+        children: [
+          // Left panel: Database sidebar
+          SizedBox(
+            width: 220,
+            child: DatabaseSidebar(
+              databaseNames: state.databaseNames,
+              selectedDatabase: state.selectedDatabase,
+              environmentPath: state.environmentPath,
+              onClose: () {
+                context.read<EntryViewerCubit>().clearSelection();
+                context.read<ExplorerBloc>().add(const CloseEnvironment());
+              },
             ),
           ),
-        ),
-        // Right panel: Entry detail
-        SizedBox(width: _detailWidth, child: const EntryDetailPanel()),
-      ],
+          const VerticalDivider(width: 1, thickness: 1),
+          // Center panel: Entry table
+          Expanded(
+            child: EntryTable(
+              keyIndex: state.keyIndex,
+              searchResults: state.searchResults,
+              selectedDatabase: state.selectedDatabase,
+              searchQuery: state.searchQuery,
+              isLoading: state.isLoading,
+            ),
+          ),
+          // Draggable resize handle
+          MouseRegion(
+            cursor: SystemMouseCursors.resizeColumn,
+            child: GestureDetector(
+              onHorizontalDragStart: (_) => setState(() => _isDragging = true),
+              onHorizontalDragUpdate: (details) {
+                setState(() {
+                  _detailWidth = (_detailWidth - details.delta.dx).clamp(
+                    _minDetailWidth,
+                    _maxDetailWidth,
+                  );
+                });
+              },
+              onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
+              child: Container(
+                width: 5,
+                color: _isDragging
+                    ? colorScheme.primary
+                    : colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+          // Right panel: Entry detail
+          SizedBox(width: _detailWidth, child: const EntryDetailPanel()),
+        ],
+      ),
     );
   }
 }
