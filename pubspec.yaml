@@ -18,6 +18,7 @@ dependencies:
   equatable: ^2.0.8
   flat_buffers: ^25.9.23
   window_manager: ^0.5.1
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:

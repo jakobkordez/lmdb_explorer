@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lmdb_explorer/bloc/recent_databases/recent_databases_cubit.dart';
 
 import '../bloc/entry_viewer/entry_viewer_cubit.dart';
 import '../bloc/explorer/explorer_bloc.dart';
@@ -20,10 +23,13 @@ class HomePage extends StatelessWidget {
       dialogTitle: 'Select LMDB Environment Directory',
     );
 
-    if (result != null && context.mounted) {
-      context.read<EntryViewerCubit>().clearSelection();
-      context.read<ExplorerBloc>().add(OpenEnvironment(result));
-    }
+    if (result != null && context.mounted) _openPath(context, result);
+  }
+
+  void _openPath(BuildContext context, String path) {
+    context.read<EntryViewerCubit>().clearSelection();
+    context.read<RecentDatabasesCubit>().pushRecentDatabase(path);
+    context.read<ExplorerBloc>().add(OpenEnvironment(path));
   }
 
   @override
@@ -35,15 +41,9 @@ class HomePage extends StatelessWidget {
       body: BlocBuilder<ExplorerBloc, ExplorerState>(
         builder: (context, state) {
           return switch (state) {
-            ExplorerInitial() => EmptyState(
-              icon: Icons.folder_open_outlined,
-              title: 'No Environment Open',
-              subtitle: 'Select an LMDB environment directory to explore.',
-              action: FilledButton.icon(
-                onPressed: () => _openEnvironment(context),
-                icon: const Icon(Icons.folder_open_rounded, size: 20),
-                label: const Text('Open environment'),
-              ),
+            ExplorerInitial() => _InitialScreen(
+              onOpenEnvironment: () => _openEnvironment(context),
+              onOpenPath: (path) => _openPath(context, path),
             ),
             ExplorerLoading(:final path) => Center(
               child: Column(
@@ -59,7 +59,7 @@ class HomePage extends StatelessWidget {
               ),
             ),
             ExplorerLoaded() => _LoadedLayout(state: state),
-            ExplorerError(:final message, :final previousState) => Center(
+            ExplorerError(:final message) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Column(
@@ -85,20 +85,11 @@ class HomePage extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (previousState != null)
-                          OutlinedButton(
-                            onPressed: () {
-                              // Re-select the database to retry
-                              context.read<ExplorerBloc>().add(
-                                SelectDatabase(previousState.selectedDatabase),
-                              );
-                            },
-                            child: const Text('Retry'),
-                          ),
-                        const SizedBox(width: 12),
                         FilledButton(
-                          onPressed: () => _openEnvironment(context),
-                          child: const Text('Open Another'),
+                          onPressed: () => context.read<ExplorerBloc>().add(
+                            const CloseEnvironment(),
+                          ),
+                          child: const Text('Back'),
                         ),
                       ],
                     ),
@@ -186,6 +177,194 @@ class _LoadedLayoutState extends State<_LoadedLayout> {
         // Right panel: Entry detail
         SizedBox(width: _detailWidth, child: const EntryDetailPanel()),
       ],
+    );
+  }
+}
+
+class _InitialScreen extends StatelessWidget {
+  final VoidCallback onOpenEnvironment;
+  final ValueChanged<String> onOpenPath;
+
+  const _InitialScreen({
+    required this.onOpenEnvironment,
+    required this.onOpenPath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Left half: open environment prompt
+        Expanded(
+          child: EmptyState(
+            icon: Icons.folder_open_outlined,
+            title: 'No Environment Open',
+            subtitle: 'Select an LMDB environment directory to explore.',
+            action: FilledButton.icon(
+              onPressed: onOpenEnvironment,
+              icon: const Icon(Icons.folder_open_rounded, size: 20),
+              label: const Text('Open environment'),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 200,
+          child: VerticalDivider(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        // Right half: recently opened databases
+        Expanded(
+          child: Center(
+            child: BlocBuilder<RecentDatabasesCubit, RecentDatabasesState>(
+              builder: (context, state) {
+                if (state is! RecentDatabasesLoaded) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final paths = state.paths;
+
+                return SizedBox(
+                  width: 400,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.history_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Recently Opened',
+                            style: textTheme.titleSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (paths.isEmpty)
+                        Text(
+                          'No recent environments',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        )
+                      else
+                        ...paths.map((path) {
+                          final exists = Directory(path).existsSync();
+
+                          return _RecentItem(
+                            path: path,
+                            dirName: path.split(RegExp(r'[/\\]')).last,
+                            exists: exists,
+                            onTap: exists ? () => onOpenPath(path) : null,
+                            onRemove: () => context
+                                .read<RecentDatabasesCubit>()
+                                .removeRecentDatabase(path),
+                          );
+                        }),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecentItem extends StatefulWidget {
+  final String path;
+  final String dirName;
+  final bool exists;
+  final VoidCallback? onTap;
+  final VoidCallback onRemove;
+
+  const _RecentItem({
+    required this.path,
+    required this.dirName,
+    required this.exists,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  State<_RecentItem> createState() => _RecentItemState();
+}
+
+class _RecentItemState extends State<_RecentItem> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: ListTile(
+        visualDensity: VisualDensity.compact,
+        dense: true,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        enabled: widget.exists,
+        onTap: widget.onTap,
+        hoverColor: colorScheme.primary.withValues(alpha: 0.06),
+        leading: Icon(
+          Icons.folder_outlined,
+          size: 20,
+          color: widget.exists
+              ? colorScheme.primary
+              : colorScheme.onSurface.withValues(alpha: 0.3),
+        ),
+        title: Text(
+          widget.dirName,
+          style: textTheme.bodyMedium?.copyWith(
+            color: widget.exists
+                ? colorScheme.onSurface
+                : colorScheme.onSurface.withValues(alpha: 0.4),
+            fontWeight: FontWeight.w500,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          widget.path,
+          style: textTheme.bodySmall?.copyWith(
+            color: widget.exists
+                ? colorScheme.onSurfaceVariant.withValues(alpha: 0.7)
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: _hovering
+            ? IconButton(
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                tooltip: 'Remove from recents',
+                onPressed: widget.onRemove,
+                visualDensity: VisualDensity.compact,
+              )
+            : null,
+      ),
     );
   }
 }

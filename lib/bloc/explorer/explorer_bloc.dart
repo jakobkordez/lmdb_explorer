@@ -77,9 +77,7 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
         ),
       );
     } catch (e) {
-      emit(
-        ExplorerError('Failed to load database: $e', previousState: current),
-      );
+      emit(ExplorerError('Failed to load database: $e'));
     }
   }
 
@@ -118,14 +116,9 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
       final loaded = state;
       if (loaded is! ExplorerLoaded) return;
 
-      emit(
-        loaded.copyWith(
-          searchResults: results,
-          isLoading: false,
-        ),
-      );
+      emit(loaded.copyWith(searchResults: results, isLoading: false));
     } catch (e) {
-      emit(ExplorerError('Search failed: $e', previousState: current));
+      emit(ExplorerError('Search failed: $e'));
     }
   }
 
@@ -160,12 +153,7 @@ class ExplorerBloc extends Bloc<ExplorerEvent, ExplorerState> {
     final current = state;
     if (current is! ExplorerLoaded) return;
 
-    emit(
-      current.copyWith(
-        searchQuery: '',
-        searchResults: const [],
-      ),
-    );
+    emit(current.copyWith(searchQuery: '', searchResults: const []));
   }
 
   Future<void> _onCloseEnvironment(

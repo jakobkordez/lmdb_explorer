@@ -1,40 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lmdb_explorer/bloc/recent_databases/recent_databases_cubit.dart';
 
 import 'bloc/entry_viewer/entry_viewer_cubit.dart';
 import 'bloc/explorer/explorer_bloc.dart';
 import 'pages/home_page.dart';
 import 'services/lmdb_service.dart';
+import 'services/recent_databases_service.dart';
 
-class LmdbExplorerApp extends StatefulWidget {
+class LmdbExplorerApp extends StatelessWidget {
   const LmdbExplorerApp({super.key});
 
   @override
-  State<LmdbExplorerApp> createState() => _LmdbExplorerAppState();
-}
-
-class _LmdbExplorerAppState extends State<LmdbExplorerApp> {
-  late final LmdbService _lmdbService;
-
-  @override
-  void initState() {
-    super.initState();
-    _lmdbService = LmdbService();
-  }
-
-  @override
-  void dispose() {
-    _lmdbService.closeEnvironment();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return RepositoryProvider.value(
-      value: _lmdbService,
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider(
+          create: (_) => LmdbService(),
+          dispose: (s) => s.closeEnvironment(),
+        ),
+        RepositoryProvider(create: (_) => RecentDatabasesService()),
+      ],
       child: MultiBlocProvider(
         providers: [
-          BlocProvider(create: (_) => ExplorerBloc(lmdbService: _lmdbService)),
+          BlocProvider(
+            create: (context) =>
+                RecentDatabasesCubit(context.read<RecentDatabasesService>()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                ExplorerBloc(lmdbService: context.read<LmdbService>()),
+          ),
           BlocProvider(create: (_) => EntryViewerCubit()),
         ],
         child: MaterialApp(

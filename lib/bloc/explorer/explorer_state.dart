@@ -108,11 +108,8 @@ class ExplorerLoaded extends ExplorerState {
 class ExplorerError extends ExplorerState {
   final String message;
 
-  /// The previous loaded state, if any, to allow recovery.
-  final ExplorerLoaded? previousState;
-
-  const ExplorerError(this.message, {this.previousState});
+  const ExplorerError(this.message);
 
   @override
-  List<Object?> get props => [message, previousState];
+  List<Object?> get props => [message];
 }
