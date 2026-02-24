@@ -202,99 +202,131 @@ class _InitialScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final Widget child;
+        if (constraints.maxWidth <= 850) {
+          child = ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.all(24),
+            children: [
+              _left(),
+              Divider(
+                height: 100,
+                indent: 50,
+                endIndent: 50,
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 400),
+                child: Center(child: _right(context)),
+              ),
+            ],
+          );
+        } else {
+          child = Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: SizedBox()),
+              // Left half: open environment prompt
+              SizedBox(width: 400, child: _left()),
+              Expanded(
+                child: SizedBox(
+                  height: 200,
+                  child: VerticalDivider(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              // Right half: recently opened databases
+              SizedBox(width: 400, child: _right(context)),
+              Expanded(child: SizedBox()),
+            ],
+          );
+        }
+
+        return Center(child: child);
+      },
+    );
+  }
+
+  Widget _left() {
+    return EmptyState(
+      icon: Icons.folder_open_outlined,
+      title: 'No Environment Open',
+      subtitle: 'Select an LMDB environment directory to explore.',
+      action: FilledButton.icon(
+        onPressed: onOpenEnvironment,
+        icon: const Icon(Icons.folder_open_rounded, size: 20),
+        label: const Text('Open environment'),
+      ),
+    );
+  }
+
+  Widget _right(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Left half: open environment prompt
-        Expanded(
-          child: EmptyState(
-            icon: Icons.folder_open_outlined,
-            title: 'No Environment Open',
-            subtitle: 'Select an LMDB environment directory to explore.',
-            action: FilledButton.icon(
-              onPressed: onOpenEnvironment,
-              icon: const Icon(Icons.folder_open_rounded, size: 20),
-              label: const Text('Open environment'),
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 200,
-          child: VerticalDivider(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-          ),
-        ),
-        // Right half: recently opened databases
-        Expanded(
-          child: Center(
-            child: BlocBuilder<RecentDatabasesCubit, RecentDatabasesState>(
-              builder: (context, state) {
-                if (state is! RecentDatabasesLoaded) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+    return BlocBuilder<RecentDatabasesCubit, RecentDatabasesState>(
+      builder: (context, state) {
+        if (state is! RecentDatabasesLoaded) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-                final paths = state.paths;
+        final paths = state.paths;
 
-                return SizedBox(
-                  width: 400,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.history_rounded,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Recently Opened',
-                            style: textTheme.titleSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      if (paths.isEmpty)
-                        Text(
-                          'No recent environments',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.5,
-                            ),
-                          ),
-                        )
-                      else
-                        ...paths.map((path) {
-                          final exists = Directory(path).existsSync();
-
-                          return _RecentItem(
-                            path: path,
-                            dirName: path.split(RegExp(r'[/\\]')).last,
-                            exists: exists,
-                            onTap: exists ? () => onOpenPath(path) : null,
-                            onRemove: () => context
-                                .read<RecentDatabasesCubit>()
-                                .removeRecentDatabase(path),
-                          );
-                        }),
-                    ],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.history_rounded,
+                  size: 20,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Recently Opened',
+                  style: textTheme.titleSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 16),
+            if (paths.isEmpty)
+              Text(
+                'No recent environments',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              )
+            else
+              ...paths.map((path) {
+                final exists = Directory(path).existsSync();
+
+                return _RecentItem(
+                  path: path,
+                  dirName: path.split(RegExp(r'[/\\]')).last,
+                  exists: exists,
+                  onTap: exists ? () => onOpenPath(path) : null,
+                  onRemove: () => context
+                      .read<RecentDatabasesCubit>()
+                      .removeRecentDatabase(path),
+                );
+              }),
+          ],
+        );
+      },
     );
   }
 }
